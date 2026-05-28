@@ -1,0 +1,10 @@
+
+xhs-images/
+.DS_Store
+.derived/
+perf/
+DerivedData/
+build/
+dist/
+*.xcworkspace/xcuserdata/
+xcuserdata/
