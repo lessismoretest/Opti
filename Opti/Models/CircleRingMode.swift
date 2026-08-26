@@ -318,7 +318,24 @@ class CircleRingController: ObservableObject {
                     }
                 }
 
-                let bundleId = AppSettings.shared.circleRingApps[selectedIndex]
+                let appSlots = self.configuredCircleRingAppSlots
+                guard selectedIndex < appSlots.count else {
+                    self.hideCircleRing()
+                    return
+                }
+
+                let selectedSlot = appSlots[selectedIndex]
+                guard case .available = selectedSlot.state else {
+                    self.hideCircleRing()
+                    DispatchQueue.main.async {
+                        self.showUnavailableApplicationAlert(
+                            bundleIdentifier: selectedSlot.bundleId.isEmpty ? nil : selectedSlot.bundleId
+                        )
+                    }
+                    return
+                }
+
+                let bundleId = selectedSlot.bundleId
                 optiDebugLog("[CircleRingController] 直接使用选中的索引启动应用: \(bundleId), 索引: \(selectedIndex)")
                 
                 // 检查选中的应用是否为当前前台应用
@@ -353,33 +370,11 @@ class CircleRingController: ObservableObject {
                     }
                 }
                 
-                // 尝试启动应用
-                if NSWorkspace.shared.launchApplication(withBundleIdentifier: bundleId, 
-                                                       options: [.default], 
-                                                       additionalEventParamDescriptor: nil, 
-                                                       launchIdentifier: nil) {
-                    optiDebugLog("[CircleRingController] 成功启动应用: \(bundleId)")
-                    
-                    // 增加使用计数
-                    AppSettings.shared.incrementUsageCount(type: .circleRing)
-                    
-                    // 隐藏圆环
-                    self.hideCircleRing()
-                    return
-                } else if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
-                    // 如果直接启动失败，尝试使用URL打开
-                    NSWorkspace.shared.open(url)
-                    optiDebugLog("[CircleRingController] 通过URL启动应用: \(bundleId)")
-                    
-                    // 增加使用计数
-                    AppSettings.shared.incrementUsageCount(type: .circleRing)
-                    
-                    // 隐藏圆环
-                    self.hideCircleRing()
-                    return
-                } else {
-                    optiDebugLog("[CircleRingController] 无法启动应用: \(bundleId)")
-                }
+                HotKeyManager.shared.switchToApp(bundleIdentifier: bundleId)
+                optiDebugLog("[CircleRingController] 请求启动应用: \(bundleId)")
+                AppSettings.shared.incrementUsageCount(type: .circleRing)
+                self.hideCircleRing()
+                return
             } else {
                 // 备用方法：尝试从HostingView获取CircleRingView
                 if let circleRingWindow = self.window,
@@ -433,10 +428,36 @@ class CircleRingController: ObservableObject {
     private var selectedItemsCount: Int {
         switch activeSessionContentMode {
         case .apps:
-            return AppSettings.shared.circleRingApps.count
+            return configuredCircleRingAppSlots.count
         case .websites:
             return AppSettings.shared.circleRingWebsites.count
         }
+    }
+
+    private var configuredCircleRingAppSlots: [CircleRingAppSlot] {
+        CircleRingAppSlot.resolve(
+            configuredBundleIdentifiers: AppSettings.shared.circleRingApps,
+            sectorCount: AppSettings.shared.circleRingSectorCount,
+            applicationURL: { bundleIdentifier in
+                NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier)
+            }
+        )
+    }
+
+    func showUnavailableApplicationAlert(bundleIdentifier: String?) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "知道了")
+
+        if let bundleIdentifier {
+            alert.messageText = "应用已失效"
+            alert.informativeText = "无法找到 \(bundleIdentifier)。这个应用可能已被移动或卸载；圆环中的位置和配置不会被自动更改。"
+        } else {
+            alert.messageText = "这个位置没有配置应用"
+            alert.informativeText = "请在 Opti 设置的“应用圆环设置”中为这个位置选择应用。"
+        }
+
+        alert.runModal()
     }
 
     private func updateContentMode(_ newMode: ContentMode) {

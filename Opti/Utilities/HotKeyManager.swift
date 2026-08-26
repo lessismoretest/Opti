@@ -441,11 +441,9 @@ class HotKeyManager: ObservableObject {
     }
     
     private func handleHotKey(_ id: UInt32) {
-        guard activeOptionKeyCode != nil else {
-            optiDebugLog("[HotKeyManager] 忽略未启用侧的 Option 快捷键")
-            return
-        }
-
+        // RegisterEventHotKey only invokes this handler for a registered Option chord.
+        // Do not gate it on the asynchronous NSEvent flagsChanged monitor: on
+        // macOS 27 an Option-only chord can arrive before that state is updated.
         let number = Int(id)
         
         // 使用映射表直接获取键，避免复杂的计算
@@ -514,70 +512,26 @@ class HotKeyManager: ObservableObject {
     
     func switchToApp(bundleIdentifier: String) {
         optiDebugLog("Attempting to switch to app with bundle ID: \(bundleIdentifier)")
-        
-        // 特殊处理访达
-        if bundleIdentifier == "com.apple.finder" {
-            // 如果访达已运行，直接激活它
-            if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first {
-                let options: NSApplication.ActivationOptions = [.activateIgnoringOtherApps]
-                _ = app.activate(options: options)
-                optiDebugLog("已激活访达")
-            } else {
-                optiDebugLog("正在启动访达...")
-                NSWorkspace.shared.launchApplication("Finder")
-            }
-            return
-        }
-        
-        // 先尝试激活已运行的应用
-        if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first {
-            // 使用更强的激活选项
-            let options: NSApplication.ActivationOptions = [.activateIgnoringOtherApps]
-            let success = app.activate(options: options)
-            
-            // 如果第一次激活失败，尝试强制激活
-            if !success {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    _ = app.activate(options: options)
-                }
-            }
-            if shouldReopenWindowlessApp(bundleIdentifier: bundleIdentifier) {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first,
-                          !self.hasVisibleWindow(for: app) else {
-                        return
-                    }
-                    self.reopenApp(bundleIdentifier: bundleIdentifier)
-                }
-            }
-            optiDebugLog("Activating running app \(bundleIdentifier): \(success)")
-            return
-        }
-        
-        // 如果应用未运行，则启动它
-        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) {
-            let config = NSWorkspace.OpenConfiguration()
-            config.activates = true
 
-            NSWorkspace.shared.openApplication(at: url, configuration: config) { app, error in
-                if let error = error {
-                    optiDebugLog("Error launching app: \(error)")
-                    return
-                }
-
-                optiDebugLog("Launching app at \(url)")
-
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first ?? app else {
-                        optiDebugLog("Launched app not found after delay: \(bundleIdentifier)")
-                        return
-                    }
-                    let success = app.activate(options: [.activateIgnoringOtherApps])
-                    optiDebugLog("Activating launched app \(bundleIdentifier): \(success)")
-                }
-            }
-        } else {
+        guard !bundleIdentifier.isEmpty,
+              let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) else {
             optiDebugLog("Could not find app with bundle ID: \(bundleIdentifier)")
+            return
+        }
+
+        // 让 Launch Services 复用已运行实例并将其带到前台。
+        // 这条路径同时适用于已运行和未运行的应用，并避开已废弃的
+        // NSApplication.ActivationOptions.activateIgnoringOtherApps。
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+
+        NSWorkspace.shared.openApplication(at: url, configuration: configuration) { app, error in
+            if let error = error {
+                optiDebugLog("Error opening app \(bundleIdentifier): \(error)")
+                return
+            }
+
+            optiDebugLog("Opened app \(app?.localizedName ?? bundleIdentifier) at \(url)")
         }
     }
 
@@ -606,28 +560,6 @@ class HotKeyManager: ObservableObject {
         return !isUIElement && !isBackgroundOnly
     }
 
-    private func reopenApp(bundleIdentifier: String) {
-        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) else {
-            return
-        }
-
-        let config = NSWorkspace.OpenConfiguration()
-        config.activates = true
-
-        NSWorkspace.shared.openApplication(at: url, configuration: config) { _, error in
-            if let error = error {
-                optiDebugLog("Error reopening app: \(error)")
-            }
-
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first {
-                    let success = app.activate(options: [.activateIgnoringOtherApps])
-                    optiDebugLog("Activating reopened app \(bundleIdentifier): \(success)")
-                }
-            }
-        }
-    }
-    
     func updateShortcuts() {
         registerAllHotKeys()
         // 触发观察者更新

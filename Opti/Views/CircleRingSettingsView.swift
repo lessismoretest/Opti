@@ -910,9 +910,18 @@ struct CircleRingSettingsView: View {
                     apps.append(appInfo)
                     optiDebugLog("[CircleRingSettingsView] 扇区 \(i): \(appInfo.name)")
                 } else {
-                    // 如果找不到应用，添加占位符
-                    apps.append(AppInfo(bundleId: "placeholder.\(i)", name: "未找到", icon: NSImage(), url: nil))
-                    optiDebugLog("[CircleRingSettingsView] 扇区 \(i): 应用未找到")
+                    // 应用失效时保留原 Bundle ID 和扇区位置，不静默删除或重排
+                    let unavailableIcon = NSImage(
+                        systemSymbolName: "exclamationmark.app.fill",
+                        accessibilityDescription: "应用已失效"
+                    ) ?? NSImage()
+                    apps.append(AppInfo(
+                        bundleId: configuredApps[i],
+                        name: "应用已失效",
+                        icon: unavailableIcon,
+                        url: nil
+                    ))
+                    optiDebugLog("[CircleRingSettingsView] 扇区 \(i): 应用已失效 (\(configuredApps[i]))")
                 }
             } else {
                 // 如果该扇区没有配置，添加占位符
