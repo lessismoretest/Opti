@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AppSelectionView: View {
-    private struct AppCandidate: Identifiable, Hashable {
+    struct AppCandidate: Identifiable, Hashable {
         let bundleId: String
         let name: String
         let appURL: URL
@@ -115,8 +115,8 @@ struct AppSelectionView: View {
         isLoading = false
     }
 
-    nonisolated private static func scanInstalledApps() -> [AppCandidate] {
-        let appDirectories = [
+    nonisolated static func scanInstalledApps(
+        in appDirectories: [URL] = [
             URL(fileURLWithPath: "/Applications"),
             URL(fileURLWithPath: "/Applications/Utilities"),
             URL(fileURLWithPath: "/System/Applications"),
@@ -124,15 +124,20 @@ struct AppSelectionView: View {
             URL(fileURLWithPath: "/System/Library/CoreServices"),
             FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications")
         ]
-
+    ) -> [AppCandidate] {
         var uniqueAppsByBundleId: [String: AppCandidate] = [:]
         for directory in appDirectories {
-            guard let entries = try? FileManager.default.contentsOfDirectory(atPath: directory.path) else {
+            guard let entries = FileManager.default.enumerator(
+                at: directory,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles, .skipsPackageDescendants]
+            ) else {
                 continue
             }
 
-            for entry in entries where entry.hasSuffix(".app") {
-                let appURL = directory.appendingPathComponent(entry)
+            for case let appURL as URL in entries where appURL.pathExtension == "app" {
+                // 扫描 Chrome Apps 等子目录，但不进入应用包内收集辅助程序。
+                entries.skipDescendants()
                 guard let bundle = Bundle(url: appURL),
                       let bundleId = bundle.bundleIdentifier,
                       uniqueAppsByBundleId[bundleId] == nil,

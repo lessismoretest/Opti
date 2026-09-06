@@ -11,6 +11,34 @@ import Testing
 
 struct OptiTests {
 
+    @Test func appSelectionFindsNestedChromeAppsWithoutBundledHelpers() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let grokURL = directory.appendingPathComponent("Chrome Apps.localized/Grok.app")
+        let hostURL = directory.appendingPathComponent("Browser.app")
+        let fixtures: [(URL, String, String)] = [
+            (grokURL, "test.chrome.grok", "Grok"),
+            (hostURL, "test.browser", "Browser"),
+            (hostURL.appendingPathComponent("Contents/Helpers/Helper.app"), "test.browser.helper", "Helper")
+        ]
+        for (appURL, bundleId, name) in fixtures {
+            let contentsURL = appURL.appendingPathComponent("Contents")
+            try FileManager.default.createDirectory(at: contentsURL, withIntermediateDirectories: true)
+            let info = ["CFBundleIdentifier": bundleId, "CFBundleName": name, "CFBundlePackageType": "APPL"]
+            let data = try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
+            try data.write(to: contentsURL.appendingPathComponent("Info.plist"))
+        }
+
+        let apps = AppSelectionView.scanInstalledApps(in: [directory, directory])
+        let grok = try #require(apps.first { $0.bundleId == "test.chrome.grok" })
+        #expect(grok.appURL.resolvingSymlinksInPath().path == grokURL.resolvingSymlinksInPath().path)
+        #expect(grok.searchableText.contains("grok"))
+        #expect(apps.filter { $0.bundleId == "test.chrome.grok" }.count == 1)
+        #expect(apps.contains { $0.bundleId == "test.browser" })
+        #expect(!apps.contains { $0.bundleId == "test.browser.helper" })
+    }
+
     @Test func circleRingPreservesConfiguredSlotsWhenAppsBecomeUnavailable() {
         let configuredBundleIdentifiers = [
             "com.electron.lark",
