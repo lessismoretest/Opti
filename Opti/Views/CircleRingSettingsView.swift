@@ -155,7 +155,7 @@ struct CircleRingSettingsView: View {
                     .padding(.vertical, 10)
                     
                     if settings.circleRingApps.isEmpty {
-                        Text("未选择应用，将使用系统默认应用")
+                        Text("尚未配置应用，点击扇区选择应用")
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .padding(.vertical, 4)
@@ -163,7 +163,7 @@ struct CircleRingSettingsView: View {
                 } header: {
                     Text("应用圆环设置")
                 } footer: {
-                    Text("未配置应用的扇区将使用系统默认应用（访达、Safari等）")
+                    Text("未配置的扇区显示“未配置”，无法找到的应用显示“应用已失效”，不会自动填充系统应用。")
                         .font(.caption)
                 }
 
@@ -895,13 +895,11 @@ struct CircleRingSettingsView: View {
         let configuredApps = settings.circleRingApps
         let sectorCount = settings.circleRingSectorCount
         
-        if configuredApps.isEmpty {
-            let defaultApps = getDefaultApps()
-            optiDebugLog("[CircleRingSettingsView] 使用默认应用列表: \(defaultApps.count) 个")
-            return defaultApps
-        }
-        
         var apps: [AppInfo] = []
+        let unconfiguredIcon = NSImage(
+            systemSymbolName: "plus.app",
+            accessibilityDescription: "未配置应用"
+        ) ?? NSImage()
         
         // 确保应用映射到正确的扇区
         for i in 0..<sectorCount {
@@ -925,25 +923,12 @@ struct CircleRingSettingsView: View {
                 }
             } else {
                 // 如果该扇区没有配置，添加占位符
-                apps.append(AppInfo(bundleId: "empty.\(i)", name: "未配置", icon: NSImage(), url: nil))
+                apps.append(AppInfo(bundleId: "empty.\(i)", name: "未配置", icon: unconfiguredIcon, url: nil))
                 optiDebugLog("[CircleRingSettingsView] 扇区 \(i): 未配置")
             }
         }
         
         return apps
-    }
-    
-    // 获取默认应用列表
-    private func getDefaultApps() -> [AppInfo] {
-        let defaultBundleIds = [
-            "com.apple.finder",
-            "com.apple.Safari",
-            "com.apple.mail",
-            "com.apple.systempreferences",
-            "com.apple.calculator"
-        ]
-        
-        return defaultBundleIds.compactMap { getSystemAppInfo(for: $0) }
     }
     
     private func currentBundleId(for sectorIndex: Int) -> String? {
@@ -980,11 +965,6 @@ struct CircleRingSettingsView: View {
         }
 
         var circleRingApps = settings.circleRingApps
-
-        if circleRingApps.isEmpty {
-            let defaultApps = getConfiguredApps().prefix(settings.circleRingSectorCount).map { $0.bundleId }
-            circleRingApps = defaultApps.filter { !$0.hasPrefix("empty.") && !$0.hasPrefix("placeholder.") }
-        }
 
         while circleRingApps.count <= max(index1, index2) {
             circleRingApps.append("")
@@ -1641,6 +1621,7 @@ struct CircleRingSectorVisualizer: View {
                     .cornerRadius(settings.circleRingIconCornerRadius * metrics.scale)
                     .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
             }
+            .help(app.name)
             .position(position)
             .opacity(isDraggingThisIcon ? 0.3 : 1) // 拖拽时原位置图标透明度降低
             .scaleEffect(isDraggingThisIcon ? 0.8 : 1)

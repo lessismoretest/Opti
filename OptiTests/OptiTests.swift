@@ -75,6 +75,27 @@ struct OptiTests {
         #expect(slots[11].bundleId == "com.apple.systempreferences")
     }
 
+    @Test(arguments: [4, 8, 12], [[], [""], ["", "", "", ""]])
+    func circleRingLeavesEverySectorUnconfiguredWhenNoAppsAreSelected(
+        sectorCount: Int,
+        configuredBundleIdentifiers: [String]
+    ) {
+        var lookedUpBundleIdentifiers: [String] = []
+        let slots = CircleRingAppSlot.resolve(
+            configuredBundleIdentifiers: configuredBundleIdentifiers,
+            sectorCount: sectorCount,
+            applicationURL: { bundleIdentifier in
+                lookedUpBundleIdentifiers.append(bundleIdentifier)
+                return URL(fileURLWithPath: "/Applications/\(bundleIdentifier).app")
+            }
+        )
+
+        #expect(slots.count == sectorCount)
+        #expect(slots.map(\.index) == Array(0..<sectorCount))
+        #expect(slots.allSatisfy { $0.state == .unconfigured && $0.bundleId.isEmpty && $0.url == nil })
+        #expect(lookedUpBundleIdentifiers.isEmpty)
+    }
+
     @Test func circleRingKeepsUnconfiguredSectorsInPlace() {
         let slots = CircleRingAppSlot.resolve(
             configuredBundleIdentifiers: ["app.one", "", "app.three"],

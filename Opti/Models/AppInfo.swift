@@ -24,7 +24,7 @@ struct CircleRingAppSlot: Equatable {
         sectorCount: Int,
         applicationURL: (String) -> URL?
     ) -> [CircleRingAppSlot] {
-        guard !configuredBundleIdentifiers.isEmpty, sectorCount > 0 else {
+        guard sectorCount > 0 else {
             return []
         }
 

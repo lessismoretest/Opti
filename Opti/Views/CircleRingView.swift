@@ -905,62 +905,48 @@ struct CircleRingView: View {
         }
 
         let configuredApps = settings.circleRingApps
-        if !configuredApps.isEmpty {
-            // 使用用户配置的应用
-            optiDebugLog("[CircleRingView] 开始加载用户配置的应用，共 \(configuredApps.count) 个")
-            
-            let unavailableIcon = NSImage(
-                systemSymbolName: "exclamationmark.app.fill",
-                accessibilityDescription: "应用已失效"
-            ) ?? NSImage()
-            let unconfiguredIcon = NSImage(
-                systemSymbolName: "plus.app",
-                accessibilityDescription: "未配置应用"
-            ) ?? NSImage()
-            let slots = CircleRingAppSlot.resolve(
-                configuredBundleIdentifiers: configuredApps,
-                sectorCount: settings.circleRingSectorCount,
-                applicationURL: { bundleId in
-                    NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId)
-                }
-            )
+        optiDebugLog("[CircleRingView] 开始加载用户配置的应用，共 \(configuredApps.count) 个")
 
-            let loadedApps = slots.map { slot in
-                switch slot.state {
-                case .available(let url):
-                    let appName = url.deletingPathExtension().lastPathComponent
-                    let icon = NSWorkspace.shared.icon(forFile: url.path)
-                    optiDebugLog("[CircleRingView] 扇区 \(slot.index) 已加载应用: \(appName) (\(slot.bundleId))")
-                    return AppInfo(bundleId: slot.bundleId, name: appName, icon: icon, url: url)
-                case .unavailable:
-                    optiDebugLog("[CircleRingView] ⚠️ 扇区 \(slot.index) 的应用已失效: \(slot.bundleId)")
-                    return AppInfo(
-                        bundleId: slot.bundleId,
-                        name: "应用已失效",
-                        icon: unavailableIcon,
-                        url: nil
-                    )
-                case .unconfigured:
-                    optiDebugLog("[CircleRingView] 扇区 \(slot.index) 未配置应用")
-                    return AppInfo(
-                        bundleId: "empty.\(slot.index)",
-                        name: "未配置",
-                        icon: unconfiguredIcon,
-                        url: nil
-                    )
-                }
+        let unavailableIcon = NSImage(
+            systemSymbolName: "exclamationmark.app.fill",
+            accessibilityDescription: "应用已失效"
+        ) ?? NSImage()
+        let unconfiguredIcon = NSImage(
+            systemSymbolName: "plus.app",
+            accessibilityDescription: "未配置应用"
+        ) ?? NSImage()
+        let slots = CircleRingAppSlot.resolve(
+            configuredBundleIdentifiers: configuredApps,
+            sectorCount: settings.circleRingSectorCount,
+            applicationURL: { bundleId in
+                NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId)
             }
-            
-            if loadedApps.isEmpty {
-                optiDebugLog("[CircleRingView] ⚠️ 未能加载任何用户配置的应用，将使用默认应用")
-                loadDefaultApps()
-            } else {
-                apps = loadedApps
+        )
+
+        apps = slots.map { slot in
+            switch slot.state {
+            case .available(let url):
+                let appName = url.deletingPathExtension().lastPathComponent
+                let icon = NSWorkspace.shared.icon(forFile: url.path)
+                optiDebugLog("[CircleRingView] 扇区 \(slot.index) 已加载应用: \(appName) (\(slot.bundleId))")
+                return AppInfo(bundleId: slot.bundleId, name: appName, icon: icon, url: url)
+            case .unavailable:
+                optiDebugLog("[CircleRingView] ⚠️ 扇区 \(slot.index) 的应用已失效: \(slot.bundleId)")
+                return AppInfo(
+                    bundleId: slot.bundleId,
+                    name: "应用已失效",
+                    icon: unavailableIcon,
+                    url: nil
+                )
+            case .unconfigured:
+                optiDebugLog("[CircleRingView] 扇区 \(slot.index) 未配置应用")
+                return AppInfo(
+                    bundleId: "empty.\(slot.index)",
+                    name: "未配置",
+                    icon: unconfiguredIcon,
+                    url: nil
+                )
             }
-        } else {
-            // 使用默认的应用（常用系统应用）
-            optiDebugLog("[CircleRingView] 用户未配置应用，将使用默认应用")
-            loadDefaultApps()
         }
         
         optiDebugLog("[CircleRingView] 最终加载了 \(apps.count) 个应用")
@@ -1002,27 +988,6 @@ struct CircleRingView: View {
                 icon: icon,
                 url: websiteURL
             )
-        }
-    }
-    
-    private func loadDefaultApps() {
-        let defaultBundleIds = [
-            "com.apple.finder",
-            "com.apple.Safari",
-            "com.apple.mail",
-            "com.apple.systempreferences",
-            "com.apple.calculator"
-        ]
-        
-        apps = defaultBundleIds.compactMap { bundleId in
-            guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
-                optiDebugLog("[CircleRingView] ⚠️ 无法加载默认应用: \(bundleId)")
-                return nil
-            }
-            let appName = url.deletingPathExtension().lastPathComponent
-            let icon = NSWorkspace.shared.icon(forFile: url.path)
-            optiDebugLog("[CircleRingView] 已加载默认应用: \(appName) (\(bundleId))")
-            return AppInfo(bundleId: bundleId, name: appName, icon: icon, url: url)
         }
     }
     
