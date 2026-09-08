@@ -115,6 +115,9 @@ class HapticFeedbackManager {
  * 显示圆环形式的应用快捷图标
  */
 struct CircleRingView: View {
+    // 为玻璃外沿、阴影和展开动画的回弹保留绘制空间。
+    static let outerPadding: CGFloat = 32
+
     @StateObject private var settings = AppSettings.shared
     @StateObject private var circleController = CircleRingController.shared
     @ObservedObject private var webIconManager = WebIconManager.shared
@@ -304,7 +307,7 @@ struct CircleRingView: View {
                                 // 1. 先尝试找没有标题的窗口（圆环窗口通常没有标题）
                                 for window in NSApp.windows where window.isVisible && window.title.isEmpty {
                                     // 检查窗口尺寸是否接近圆环尺寸，帮助识别圆环窗口
-                                    if abs(window.frame.width - settings.circleRingDiameter) < 10 {
+                                    if abs(window.frame.width - (settings.circleRingDiameter + 2 * Self.outerPadding)) < 10 {
                                         circleRingWindow = window
                                         optiDebugLog("[CircleRingView] 悬停检测找到圆环窗口：尺寸匹配")
                                         break
@@ -325,8 +328,8 @@ struct CircleRingView: View {
                                     let windowOrigin = window.frame.origin
                                     
                                     // 将全局鼠标位置转换为视图内位置
-                                    let viewX = mouseLocation.x - windowOrigin.x
-                                    let viewY = mouseLocation.y - windowOrigin.y
+                                    let viewX = mouseLocation.x - windowOrigin.x - Self.outerPadding
+                                    let viewY = mouseLocation.y - windowOrigin.y - Self.outerPadding
                                     handleMouseMoved(location: CGPoint(x: viewX, y: viewY))
                                 } else {
                                     optiDebugLog("[CircleRingView] 悬停检测无法找到窗口")
@@ -362,7 +365,7 @@ struct CircleRingView: View {
                                 // 1. 先尝试找没有标题的窗口（圆环窗口通常没有标题）
                                 for window in NSApp.windows where window.isVisible && window.title.isEmpty {
                                     // 检查窗口尺寸是否接近圆环尺寸，帮助识别圆环窗口
-                                    if abs(window.frame.width - settings.circleRingDiameter) < 10 {
+                                    if abs(window.frame.width - (settings.circleRingDiameter + 2 * Self.outerPadding)) < 10 {
                                         circleRingWindow = window
                                         optiDebugLog("[CircleRingView] 强制更新找到圆环窗口：尺寸匹配")
                                         break
@@ -384,8 +387,8 @@ struct CircleRingView: View {
                                     let windowOrigin = window.frame.origin
                                     
                                     // 将全局鼠标位置转换为视图内位置
-                                    let viewX = mouseLocation.x - windowOrigin.x
-                                    let viewY = mouseLocation.y - windowOrigin.y
+                                    let viewX = mouseLocation.x - windowOrigin.x - Self.outerPadding
+                                    let viewY = mouseLocation.y - windowOrigin.y - Self.outerPadding
                                     
                                     // 处理鼠标移动
                                     self.handleMouseMoved(location: CGPoint(x: viewX, y: viewY))
@@ -402,6 +405,7 @@ struct CircleRingView: View {
             .frame(width: settings.circleRingDiameter, height: settings.circleRingDiameter)
         }
         .frame(width: settings.circleRingDiameter, height: settings.circleRingDiameter)
+        .padding(Self.outerPadding)
         .onAppear {
             loadApps()
             optiDebugLog("[CircleRingView] 视图已出现，加载了 \(apps.count) 个应用")
@@ -679,7 +683,7 @@ struct CircleRingView: View {
         var circleRingWindow: NSWindow?
 
         for window in NSApp.windows where window.isVisible && window.title.isEmpty {
-            if abs(window.frame.width - settings.circleRingDiameter) < 10 {
+            if abs(window.frame.width - (settings.circleRingDiameter + 2 * Self.outerPadding)) < 10 {
                 circleRingWindow = window
                 break
             }
@@ -699,8 +703,8 @@ struct CircleRingView: View {
 
         let mouseLocation = NSEvent.mouseLocation
         let windowOrigin = window.frame.origin
-        let viewX = mouseLocation.x - windowOrigin.x
-        let viewY = mouseLocation.y - windowOrigin.y
+        let viewX = mouseLocation.x - windowOrigin.x - Self.outerPadding
+        let viewY = mouseLocation.y - windowOrigin.y - Self.outerPadding
         handleMouseMoved(location: CGPoint(x: viewX, y: viewY))
     }
 
@@ -752,7 +756,7 @@ struct CircleRingView: View {
         // 1. 先尝试找没有标题的窗口（圆环窗口通常没有标题）
         for window in NSApp.windows where window.isVisible && window.title.isEmpty {
             // 检查窗口尺寸是否接近圆环尺寸，帮助识别圆环窗口
-            if abs(window.frame.width - settings.circleRingDiameter) < 10 {
+            if abs(window.frame.width - (settings.circleRingDiameter + 2 * Self.outerPadding)) < 10 {
                 circleRingWindow = window
                 break
             }
@@ -1114,7 +1118,7 @@ struct CircleRingView: View {
         // 1. 先尝试找没有标题的窗口（圆环窗口通常没有标题）
         for window in NSApp.windows where window.isVisible && window.title.isEmpty {
             // 检查窗口尺寸是否接近圆环尺寸，帮助识别圆环窗口
-            if abs(window.frame.width - settings.circleRingDiameter) < 10 {
+            if abs(window.frame.width - (settings.circleRingDiameter + 2 * Self.outerPadding)) < 10 {
                 circleRingWindow = window
                 optiDebugLog("[CircleRingView] 找到圆环窗口：尺寸匹配")
                 break
@@ -1132,8 +1136,8 @@ struct CircleRingView: View {
         
         if let window = circleRingWindow {
             let windowOrigin = window.frame.origin
-            let viewX = mouseLocation.x - windowOrigin.x
-            let viewY = mouseLocation.y - windowOrigin.y
+            let viewX = mouseLocation.x - windowOrigin.x - Self.outerPadding
+            let viewY = mouseLocation.y - windowOrigin.y - Self.outerPadding
             
             // 计算相对于圆心的位置
             let relativeX = viewX - circleRadius

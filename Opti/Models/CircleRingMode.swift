@@ -715,7 +715,7 @@ class CircleRingController: ObservableObject {
     // 创建圆环窗口
     private func createCircleRingWindow() {
         let settings = AppSettings.shared
-        let size = settings.circleRingDiameter
+        let size = settings.circleRingDiameter + 2 * CircleRingView.outerPadding
         
         optiDebugLog("[CircleRingController] 开始创建圆环窗口，直径：\(size)")
         
@@ -768,19 +768,7 @@ class CircleRingController: ObservableObject {
         hostingView.frame = transparentView.bounds
         hostingView.autoresizingMask = [.width, .height]
         
-        // 设置窗口形状为圆形
-        if let layer = window.contentView?.superview?.layer {
-            layer.backgroundColor = CGColor.clear
-            
-            // 创建圆形遮罩
-            let maskLayer = CAShapeLayer()
-            let path = CGPath(ellipseIn: CGRect(x: 0, y: 0, width: size, height: size), transform: nil)
-            maskLayer.path = path
-            
-            // 将遮罩应用到窗口的最外层
-            layer.mask = maskLayer
-        }
-        
+        // 圆环视图自身定义形状；窗口保持透明，不裁掉玻璃外沿和动画。
         self.window = window
         
         // 确保视图已经完全加载后再触发鼠标事件 - 减少延迟时间从0.2秒到0.1秒
